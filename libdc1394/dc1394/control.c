@@ -84,6 +84,7 @@ static dc1394error_t
 update_camera_info (dc1394camera_t *camera)
 {
     uint32_t value=0, quadval = 0; // set to zero to avoid valgrind errors
+    uint32_t flir_value = 1;
 
     dc1394_get_control_register(camera, REG_CAMERA_BASIC_FUNC_INQ, &value);
 
@@ -512,6 +513,18 @@ dc1394_video_get_supported_modes(dc1394camera_t *camera, dc1394video_modes_t *mo
     err=dc1394_get_control_register(camera, REG_CAMERA_V_FORMAT_INQ, &sup_formats);
     DC1394_ERR_RTN(err, "Could not get supported formats");
 
+    if (camera->unit_spec_ID == FLIR_A40_MAGIC)
+    {
+        /*
+         * FLIR has 0 in REG_CAMERA_V_FORMAT_INQ and in corresponding modes. One
+         * can find out formats examing REG_CAMERA_V_MODE_INQ_BASE + i. It returns 0
+         * for supported formats and 'Error' for unsupported. To find modes
+         * one should inquiry framerates. Supported modes will have meaningfull
+         * values for framerates.
+         */
+        sup_formats = 0x81000000; // Format_0 & Format_7
+    }
+
     // for each format check supported modes and add them as we find them.
 
     modes->num=0;
@@ -520,6 +533,10 @@ dc1394_video_get_supported_modes(dc1394camera_t *camera, dc1394video_modes_t *mo
         err=dc1394_get_control_register(camera, REG_CAMERA_V_MODE_INQ_BASE + ((DC1394_FORMAT0-DC1394_FORMAT_MIN) * 0x04U), &value);
         DC1394_ERR_RTN(err, "Could not get supported modes for Format_0");
 
+        if (camera->unit_spec_ID == FLIR_A40_MAGIC)
+        {
+            value = 0x10000000;
+        }
         for (mode=DC1394_VIDEO_MODE_FORMAT0_MIN;mode<=DC1394_VIDEO_MODE_FORMAT0_MAX;mode++) {
             if ((value & (0x1<<(31-(mode-DC1394_VIDEO_MODE_FORMAT0_MIN)))) > 0) {
                 modes->modes[modes->num]=mode;
@@ -568,6 +585,10 @@ dc1394_video_get_supported_modes(dc1394camera_t *camera, dc1394video_modes_t *mo
         err=dc1394_get_control_register(camera, REG_CAMERA_V_MODE_INQ_BASE + ((DC1394_FORMAT7-DC1394_FORMAT_MIN) * 0x04U), &value);
         DC1394_ERR_RTN(err, "Could not get supported modes for Format_4");
 
+        if (camera->unit_spec_ID == FLIR_A40_MAGIC)
+        {
+            value = 0xE0000000;
+        }
         for (mode=DC1394_VIDEO_MODE_FORMAT7_MIN;mode<=DC1394_VIDEO_MODE_FORMAT7_MAX;mode++) {
             if ((value & (0x1<<(31-(mode-DC1394_VIDEO_MODE_FORMAT7_MIN))))>0) {
                 modes->modes[modes->num]=mode;
@@ -2142,12 +2163,20 @@ dc1394_camera_new_unit (dc1394_t * d, uint64_t guid, int unit)
     camera->vendor = get_leaf_string (pcam, disp, vendor_name_offset);
     camera->model = get_leaf_string (pcam, disp, model_name_offset);
 
-    if (camera->unit_spec_ID == 0xA02D) {
+    if (camera->unit_spec_ID == 0xA02D || camera->unit_spec_ID == FLIR_A40_MAGIC) {
         if (info->unit_sw_version == 0x100)
             camera->iidc_version = DC1394_IIDC_VERSION_1_04;
         else if (info->unit_sw_version == 0x101)
             camera->iidc_version = DC1394_IIDC_VERSION_1_20;
         else if (info->unit_sw_version == 0x102) {
+            camera->iidc_version = DC1394_IIDC_VERSION_1_30;
+            // only add sub_sw_version if it is valid. Otherwise
+            // consider that it's IIDC 1.30 (hence add nothing)
+            if ((unit_sub_sw_version >> 4)<=9)
+                camera->iidc_version += unit_sub_sw_version >> 4;
+        }
+        else if (info->unit_sw_version == 0x1002) {
+            // FLIR, IIDC 1.30
             camera->iidc_version = DC1394_IIDC_VERSION_1_30;
             // only add sub_sw_version if it is valid. Otherwise
             // consider that it's IIDC 1.30 (hence add nothing)

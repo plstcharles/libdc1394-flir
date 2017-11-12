@@ -98,18 +98,21 @@ int main(int argc, char *argv[])
             }
         }
     }
-    if (i < 0) {
-        dc1394_log_error("Could not get a valid MONO8 mode");
-        cleanup_and_exit(camera);
-    }
 
-    err=dc1394_get_color_coding_from_video_mode(camera, video_mode,&coding);
-    DC1394_ERR_CLN_RTN(err,cleanup_and_exit(camera),"Could not get color coding");
+    printf("spec id 0x%llX\n", camera->unit_spec_ID);
 
-    // get highest framerate
-    err=dc1394_video_get_supported_framerates(camera,video_mode,&framerates);
-    DC1394_ERR_CLN_RTN(err,cleanup_and_exit(camera),"Could not get framrates");
-    framerate=framerates.framerates[framerates.num-1];
+//    if (i < 0) {
+//        dc1394_log_error("Could not get a valid MONO8 mode");
+//        cleanup_and_exit(camera);
+//    }
+//
+//    err=dc1394_get_color_coding_from_video_mode(camera, video_mode,&coding);
+//    DC1394_ERR_CLN_RTN(err,cleanup_and_exit(camera),"Could not get color coding");
+//
+//    // get highest framerate
+//    err=dc1394_video_get_supported_framerates(camera,video_mode,&framerates);
+//    DC1394_ERR_CLN_RTN(err,cleanup_and_exit(camera),"Could not get framrates");
+//    framerate=framerates.framerates[framerates.num-1];
 
     /*-----------------------------------------------------------------------
      *  setup capture
@@ -118,10 +121,13 @@ int main(int argc, char *argv[])
     err=dc1394_video_set_iso_speed(camera, DC1394_ISO_SPEED_400);
     DC1394_ERR_CLN_RTN(err,cleanup_and_exit(camera),"Could not set iso speed");
 
-    err=dc1394_video_set_mode(camera, video_mode);
+//    err=dc1394_video_set_mode(camera, video_mode);
+    video_mode = DC1394_VIDEO_MODE_640x480_YUV422;
+    err = dc1394_video_set_mode(camera, DC1394_VIDEO_MODE_640x480_YUV422);
     DC1394_ERR_CLN_RTN(err,cleanup_and_exit(camera),"Could not set video mode");
 
-    err=dc1394_video_set_framerate(camera, framerate);
+//    err=dc1394_video_set_framerate(camera, framerate);
+    err = dc1394_video_set_framerate(camera, DC1394_FRAMERATE_7_5);
     DC1394_ERR_CLN_RTN(err,cleanup_and_exit(camera),"Could not set framerate");
 
     err=dc1394_capture_setup(camera,4, DC1394_CAPTURE_FLAGS_DEFAULT);
@@ -130,13 +136,13 @@ int main(int argc, char *argv[])
     /*-----------------------------------------------------------------------
      *  report camera's features
      *-----------------------------------------------------------------------*/
-    err=dc1394_feature_get_all(camera,&features);
-    if (err!=DC1394_SUCCESS) {
-        dc1394_log_warning("Could not get feature set");
-    }
-    else {
-        dc1394_feature_print_all(&features, stdout);
-    }
+//    err=dc1394_feature_get_all(camera,&features);
+//    if (err!=DC1394_SUCCESS) {
+//        dc1394_log_warning("Could not get feature set");
+//    }
+//    else {
+//        dc1394_feature_print_all(&features, stdout);
+//    }
 
     /*-----------------------------------------------------------------------
      *  have the camera start sending us data
@@ -166,9 +172,15 @@ int main(int argc, char *argv[])
         cleanup_and_exit(camera);
     }
 
+    printf("Total bytes: %d, image bytes %d, padding bytes %d, packet size %d, packets_per_frame %d, allocated %d\n",
+            frame->total_bytes, frame->image_bytes,
+            frame->padding_bytes, frame->packet_size,
+            frame->packets_per_frame, frame->allocated_image_bytes);
+
     dc1394_get_image_size_from_video_mode(camera, video_mode, &width, &height);
+    printf("Image size is %dx%d\n", width, height);
     fprintf(imagefile,"P5\n%u %u 255\n", width, height);
-    fwrite(frame->image, 1, height*width, imagefile);
+    fwrite(frame->image, 1, frame->total_bytes, imagefile);
     fclose(imagefile);
     printf("wrote: " IMAGE_FILE_NAME "\n");
 

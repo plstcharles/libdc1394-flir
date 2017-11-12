@@ -142,10 +142,24 @@ identify_unit (dc1394_t * d, platform_info_t * platform,
 
      (updated 2005-04-30)
   */
+  /*
+      Note on FLIR cameras:
+      FLIR is not fully compatible with IIDC specs, though it is possible
+      to work with these cameras. The following modification have been
+      tested with FLIR A40 camera.
+
+      Vadim Frolov
+
+      (updated 2009-10-01)
+  */
 
     if ((info.unit_spec_ID != 0xA02D) &&
-            (info.unit_spec_ID != 0xB09D))
+            (info.unit_spec_ID != 0xB09D) &&
+            (info.unit_spec_ID != FLIR_A40_MAGIC))
+    {
+        dc1394_log_debug("Not a IIDC compilant, not a PG camera and not a FLIR");
         return -1;
+    }
     if (!info.unit_dependent_directory)
         return -1;
 

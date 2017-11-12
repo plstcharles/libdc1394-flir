@@ -266,6 +266,13 @@ capture_basic_setup (dc1394camera_t * camera, dc1394video_frame_t * frame)
 
     frame->yuv_byte_order = DC1394_BYTE_ORDER_UYVY;
 
+    if (camera->unit_spec_ID == FLIR_A40_MAGIC)
+    {
+        // increase packet size on 40 bytes
+        frame->packet_size += 40;
+        printf("FLIR: set packet size to %d\n", frame->packet_size);
+    }
+
     frame->total_bytes = frame->packets_per_frame * frame->packet_size;
 
     err = dc1394_get_color_coding_from_video_mode (camera, video_mode, &frame->color_coding);

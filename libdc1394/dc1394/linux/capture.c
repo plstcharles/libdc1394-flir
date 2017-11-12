@@ -381,6 +381,9 @@ dc1394_linux_capture_dequeue (platform_camera_t * craw,
     dc1394video_frame_t * frame_tmp;
     int cb;
     int result=-1;
+    unsigned long i = 0;
+    unsigned char* cur_packet = NULL;
+    unsigned long cur_offset = 0;
 
     if ( (policy<DC1394_CAPTURE_POLICY_MIN) || (policy>DC1394_CAPTURE_POLICY_MAX) )
         return DC1394_INVALID_CAPTURE_POLICY;
@@ -424,6 +427,19 @@ dc1394_linux_capture_dequeue (platform_camera_t * craw,
 
     frame_tmp->frames_behind = vwait.buffer;
     frame_tmp->timestamp = (uint64_t) vwait.filltime.tv_sec * 1000000 + vwait.filltime.tv_usec;
+
+    /* FLIR A40 modifications */
+    if (craw->camera->unit_spec_ID == FLIR_A40_MAGIC)
+    {
+        /* we need to process each packet and remove first 40 bytes from it.
+         * Remove header from each packet and make continuous frame. */
+        for (i=0; i < frame_tmp->packets_per_frame; i++)
+        {
+            cur_packet = frame_tmp->image + (frame_tmp->packet_size*i);
+            memmove(frame_tmp->image + cur_offset, cur_packet + 40, frame_tmp->packet_size-40);
+            cur_offset += (frame_tmp->packet_size-40);
+        }
+    }
 
     *frame=frame_tmp;
 

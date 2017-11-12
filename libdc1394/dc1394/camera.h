@@ -33,6 +33,13 @@
 */
 
 /**
+ * FLIR A40 camera unit spec ID
+ *
+ * It is used to verify that we have a FLIR camera
+ */
+#define FLIR_A40_MAGIC 0x407F
+
+ /**
  * List of IIDC versions
  *
  * Currently, the following versions exist: 1.04, 1.20, PTGREY, 1.30 and 1.31 (1.32 coming soon)
